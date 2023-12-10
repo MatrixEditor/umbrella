@@ -1,0 +1,195 @@
+import setuptools
+
+import os
+import sys
+import platform
+import subprocess
+import tomli
+import sysconfig
+import nanobind
+
+from shutil import which, copy2, copytree
+from pathlib import Path
+
+from setuptools import Extension
+from setuptools.command.build_ext import build_ext
+
+CURRENT_DIR     = Path(__file__).parent
+UMBRELLA_DIR    = (CURRENT_DIR / ".." / "..").absolute().resolve()
+PYTHON_DIR      = CURRENT_DIR
+PACKAGE_NAME    = "umbrellacxx"
+DEFAULT_TARGET  = "umbrella-cxx"
+CURRENT_VERSION = "0.1.1"
+BUILD_TYPE      = "Release"
+
+cmake_name = "cmake"
+
+class Module(Extension):
+    def __init__(self, name, source_dir="", *args, **kwargs) -> None:
+        Extension.__init__(self, name, sources=[])
+        self.source_dir = CURRENT_DIR.resolve().absolute().as_posix()
+
+class Config:
+    def __init__(self, config: dict = None) -> None:
+        self._config = config or {}
+
+    @classmethod
+    def load(cls, file: Path) -> "Config":
+        with open(str(file), "rb") as fp:
+            toml = tomli.load(fp)
+        return Config(toml)
+
+    def is_win(self) -> bool:
+        return platform.system() == "Windows" and not sysconfig.get_platform().startswith("mingw")
+
+    def get_python_opts(self) -> list:
+        config = []
+        interpreter = Path(sys.executable)
+        base = sysconfig.get_config_var("base")
+        if base is not None:
+            config += [f"-DPython_ROOT_DIR={base}"]
+
+        config += [
+            f"-DPython_EXECUTABLE={interpreter.as_posix()}",
+        ]
+        return config
+
+    def get_generic_opts(self, output: str) -> tuple:
+        return (
+            f"-DCMAKE_BUILD_TYPE={BUILD_TYPE}",
+            f'-DCMAKE_LIBRARY_OUTPUT_DIRECTORY={output}',
+        )
+
+    def get_flags_opts(self):
+        opt = []
+        if "cxx-flags" in self._config["umbrella"]["build"]:
+            value = self._config["umbrella"]["build"]["cxx-flags"]
+            opt.append(f"-DCMAKE_CXX_FLAGS={value}")
+        else:
+            opt.append("-DCMAKE_CXX_FLAGS=''")
+
+        cxx_flags = os.getenv("CXXFLAGS", None)
+        if cxx_flags is not None:
+            opt.append(f'-DCMAKE_CXX_FLAGS={cxx_flags}')
+
+        return opt
+
+    def gen_cmake_options(self, output: str) -> list:
+        cfg = BUILD_TYPE
+        opts = [
+            *self.get_generic_opts(output),
+            *self.get_python_opts(),
+            *self.get_flags_opts(),
+        ]
+
+        if self.is_win():
+            is64 = sys.maxsize > 2**32
+            opts += [
+                f'-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_{cfg.upper()}={output}',
+            ]
+            opts += ['-A', 'x64'] if is64 else ['-A', 'win32']
+
+        return opts
+
+    def _get_jobs(self) -> list:
+        if "parallel-jobs" in self._config["umbrella"]["build"]:
+            jobs = self._config["umbrella"]["build"]["parallel-jobs"]
+            if jobs > 0:
+                return ["-j", str(jobs)]
+            return []
+        return []
+
+    def get_compile_cmd(self, cmake_bin: str) -> list:
+        return [
+            cmake_bin,
+            "--build", ".",
+            "--target", DEFAULT_TARGET,
+            "--config", BUILD_TYPE,
+        ] + self._get_jobs()
+
+
+class CMakeExtension(Extension):
+    def __init__(self, name, sourcedir=''):
+        Extension.__init__(self, name, sources=[str(p) for p in Path(sourcedir).glob('**/*')])
+        self.sourcedir = os.path.abspath(sourcedir)
+
+
+class CMakeBuild(build_ext):
+    def run(self):
+        for ext in self.extensions:
+            self.build_extension(ext)
+        self.copy_extensions_to_source()
+
+    def build_extension(self, ext):
+        build_temp = Path(self.build_temp)
+        build_lib  = Path(self.build_lib)
+        cmake_output = build_temp.parent.absolute()
+
+        cmake_bin = which("cmake")
+        if not cmake_bin:
+            raise RuntimeError("Cound not find CMake binary!")
+
+        build_temp.mkdir(exist_ok=True, parents=True)
+        build_lib.mkdir(exist_ok=True, parents=True)
+
+        print(f"build-temp   : {build_temp}")
+        print(f"build-lib    : {build_lib}")
+
+        print(f"Platform     : {platform.system()}")
+        print(f"Wheel        : {self.get_ext_fullname(ext.name)}")
+
+        cmake_additional_args = {
+            "cwd": build_temp.as_posix(),
+            "env": os.environ
+        }
+
+        # 1. Step: configure
+        conf = [cmake_bin, "-S", ext.sourcedir] + cmake_conf.gen_cmake_options(cmake_output)
+        print(f"CMake Output : {cmake_output}")
+        subprocess.check_call(conf, **cmake_additional_args)
+
+        # 2. Compile
+        compile_cmd = cmake_conf.get_compile_cmd(cmake_bin)
+        print("Compiling with:", " ".join(compile_cmd))
+        subprocess.check_call(compile_cmd, **cmake_additional_args)
+
+        destination = build_lib / self.get_ext_filename(self.get_ext_fullname(ext.name))
+
+        # The output path is somehow tricky as CMake places the target named "_umbrella[...]"
+        # into <build_temp>/_umbrella[...].pyd
+        umbrella_name = ext.name.split(".")[-1]
+        umbrella_path = build_temp / self.get_ext_filename(self.get_ext_fullname(umbrella_name))
+
+        dst = Path(umbrella_path)
+        dst.parent.mkdir(exist_ok=True, parents=True)
+        print(f"Copying {umbrella_path} into {destination}")
+        copy2(str(umbrella_path), str(destination))
+
+
+cmdclass = {
+    "build_ext": CMakeBuild
+}
+
+cmake_conf = Config.load(CURRENT_DIR / "config-default.toml")
+
+RELATIVE_CURRENT = str(CURRENT_DIR.relative_to(CURRENT_DIR))
+
+setuptools.setup(
+    version=CURRENT_VERSION,
+    cmdclass=cmdclass,
+    long_description=(CURRENT_DIR / "README.rst").read_text(),
+    long_description_content_type="text/x-rst; charset=UTF-8",
+    url="https://github.com/MatrixEditor/umbrella",
+    packages=["umbrellacxx"],
+    package_data={"umbrellacxx": ["py.typed", "*.pyi"]},
+    classifiers=[
+        "License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)",
+        "Topic :: Software Development :: Libraries",
+        "Operating System :: OS Independent",
+        "Programming Language :: C++",
+        "Programming Language :: Python :: 3 :: Only",
+    ],
+    python_requires=">=3.11",
+    ext_modules=[CMakeExtension(name="umbrellacxx._umbrella", sourcedir=RELATIVE_CURRENT)],
+    zip_safe=False,
+)

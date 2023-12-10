@@ -1,0 +1,3 @@
+[umbrella.build]
+# cxx-flags = ...
+# parallel-jobs = 6

@@ -1,0 +1,45 @@
+[build-system]
+requires = [
+    "setuptools>=42",
+    "wheel",
+    "tomli",
+    "nanobind"
+]
+build-backend = "setuptools.build_meta"
+
+[tool.cibuildwheel]
+test-skip = "*universal2:arm64"
+
+[project]
+name = "umbrellacxx"
+authors = [
+    {name = "MatrixEditor", email = "not@supported.com"},
+]
+description = "..."
+requires-python = ">=3.11"
+keywords = []
+license = {text = "Apache License 2.0"}
+classifiers = [
+    "Development Status :: 4 - Beta",
+
+    "Programming Language :: Python :: 3",
+    "Programming Language :: C++",
+
+    'Intended Audience :: Science/Research',
+    'Intended Audience :: Developers',
+
+    'License :: OSI Approved :: Apache Software License',
+
+    "Topic :: Software Development :: Libraries",
+    'Topic :: Scientific/Engineering :: Information Analysis',
+]
+dynamic = ["version", "readme"]
+dependencies = [
+"lief",
+"construct",
+"capstone",
+"construct-dataclasses",
+]
+
+[project.urls]
+repository = "https://github.com/MatrixEditor/umbrella"

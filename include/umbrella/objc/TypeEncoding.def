@@ -1,0 +1,59 @@
+/**
+ * Copyright 2023 MatrixEditor
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#ifdef OBJC_TYPE
+OBJC_TYPE('v', "void", 0, VOID)
+OBJC_TYPE('C', "unsigned char", 1, UNSIGNED_CHAR)
+OBJC_TYPE('c', "char", 1, CHAR)
+OBJC_TYPE('i', "int", 4, INT)
+OBJC_TYPE('I', "unsigned int", 4, UNSIGNED_INT)
+OBJC_TYPE('s', "short", 2, SHORT)
+OBJC_TYPE('S', "unsigned short", 2, UNSIGNED_SHORT)
+OBJC_TYPE('l', "long", 8, LONG)
+OBJC_TYPE('L', "unsigned long", 8, UNSIGNED_LONG)
+OBJC_TYPE('q', "long long", 16, LONG_LONG)
+OBJC_TYPE('Q', "unsigned long long", 16, UNSIGNED_LONG_LONG)
+OBJC_TYPE('f', "float", 4, FLOAT)
+OBJC_TYPE('d', "double", 8, DOUBLE)
+OBJC_TYPE('B', "BOOL", 1, BOOL)
+OBJC_TYPE('*', "char *", 8, STRING)
+OBJC_TYPE('#', "Class", 8, CLASS)
+OBJC_TYPE(':', "SEL", 8, SEL)
+OBJC_TYPE('?', "<unknown>", 0, UNKNOWN)
+OBJC_TYPE('%', "NXAtom", 0, NXATOM)
+#endif  // OBJC_TYPE
+
+#ifdef ATTR_TYPE
+ATTR_TYPE('R', "readonly", READONLY_)
+ATTR_TYPE('C', "copy", COPY)
+ATTR_TYPE('&', "retain", RETAIN)
+ATTR_TYPE('N', "nonatomic", NONATOMIC)
+ATTR_TYPE('D', "@dynamic", DYNAMIC)
+ATTR_TYPE('W', "__weak", WEAK)
+ATTR_TYPE('P', "__garbage", GARBAGE)
+#endif  // ATTR_TYPE
+
+#ifdef METHOD_TYPE
+METHOD_TYPE('r', "const", CONST)
+METHOD_TYPE('n', "in", IN)
+METHOD_TYPE('N', "inout", INOUT)
+METHOD_TYPE('o', "out", OUT)
+METHOD_TYPE('O', "bycopy", BYCOPY)
+METHOD_TYPE('R', "byref", BYREF)
+METHOD_TYPE('V', "oneway", ONEWAY)
+METHOD_TYPE('A', "atomic", ATOMIC)
+METHOD_TYPE('j', "complex", COMPLEX)
+#endif  // METHOD_TYPE
